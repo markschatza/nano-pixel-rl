@@ -39,6 +39,8 @@ The shared token space is the core scaling bet: the model sees simple image-grid
 - **Shared input/output token space:** Observations and proposals use the same grid vocabulary, so the learner's job is to transform input tokens into output tokens.
 - **Algorithm-only competition surface:** Valid benchmark submissions may change learner internals, model architecture, loss weighting, optimization, memory, and update rules, but not the token vocabulary, environment rules, reward contract, or evaluator.
 - **Next-pixel prediction is central:** Dense frame prediction loss is part of the benchmark thesis, not a debugging metric.
+- **Single reference script:** A `runs/speedrun.sh` equivalent should remain the canonical way to reproduce the current leaderboard run.
+- **Single complexity dial:** The reference learner should expose one primary scale or budget dial whose downstream hyperparameters are derived, matching nanochat's bias against sprawling configuration.
 
 ```mermaid
 flowchart TB
@@ -79,15 +81,19 @@ flowchart TB
 
 - R11. The repo must provide a canonical speedrun command that trains, evaluates, records wall-clock time, and emits a submission-ready result artifact.
 - R12. The leaderboard metric must be time-to-threshold, where the threshold is based on PixelPong point performance and valid run checks rather than prediction loss alone.
-- R13. Run artifacts must include enough metadata to audit validity, including code revision, seed settings, hardware summary, elapsed time, threshold result, invalid proposal rate, and prediction loss.
-- R14. The reference run should initially target roughly one hour to threshold, with the expectation that contributors optimize it downward over time.
+- R13. The repo must define the scored-time convention clearly, including whether setup, evaluation, reporting, and failed threshold probes are included or excluded.
+- R14. Run artifacts must include enough metadata to audit validity, including code revision, seed settings, hardware summary, elapsed time, threshold result, invalid proposal rate, and prediction loss.
+- R15. The canonical run should generate a human-readable report and a machine-readable result artifact, with the report convenient to inspect from the repo root after the run.
+- R16. The reference run should initially target roughly one hour to threshold, with the expectation that contributors optimize it downward over time.
 
 **Repo shape**
 
-- R15. The repo should separate frozen benchmark code from editable learner code in names and documentation, so contributors can tell what is fair game.
-- R16. The repo should include a small reference learner that is simple enough to modify and slow enough to leave room for speedrun improvements.
-- R17. The repo should include docs that explain the shared-token thesis, leaderboard rules, validity rules, and the shortest path from clone to first speedrun.
-- R18. The repo should include tests or validation checks that catch accidental changes to token meanings, environment dynamics, reward shape, and evaluator behavior.
+- R17. The repo should separate frozen benchmark code from editable learner code in names and documentation, so contributors can tell what is fair game.
+- R18. The repo should include a small reference learner that is simple enough to modify and slow enough to leave room for speedrun improvements.
+- R19. The repo should prefer a compact nanochat-like shape: package code, scripts, runs, tests, docs, `pyproject.toml`, and a lockfile.
+- R20. The README should carry the public leaderboard and shortest path to the canonical speedrun, while detailed contribution rules can live in a deeper leaderboard doc.
+- R21. The repo should include docs that explain the shared-token thesis, leaderboard rules, validity rules, and the shortest path from clone to first speedrun.
+- R22. The repo should include tests or validation checks that catch accidental changes to token meanings, environment dynamics, reward shape, and evaluator behavior.
 
 ### Proposed Repo Design
 
@@ -97,11 +103,15 @@ The exact file names may change during planning, but the repo should preserve th
 nano-pixel-rl/
   README.md
   STRATEGY.md
+  pyproject.toml
+  uv.lock
   docs/
-    leaderboard.md
     benchmark-contract.md
     learner-guide.md
     plans/
+  dev/
+    LEADERBOARD.md
+    LOG.md
   nano_pixel_rl/
     env/
       pixelpong.py
@@ -122,6 +132,11 @@ nano-pixel-rl/
       baseline.py
   runs/
     speedrun.sh
+    smoke.sh
+  scripts/
+    train.py
+    eval.py
+    report.py
   tests/
     test_tokens.py
     test_pixelpong_dynamics.py
@@ -178,6 +193,7 @@ nano-pixel-rl/
 - A new contributor can identify the editable learner surface in under five minutes from the README.
 - A speedrun result can be audited from its emitted artifact without reading the whole codebase.
 - Tests or validators fail when token meanings, reward components, evaluator semantics, or legality rules change unexpectedly.
+- The canonical run feels nanochat-like: one obvious script, one obvious report, and one primary scale or budget dial.
 - The reference run is slow enough to invite optimization and fast enough to iterate locally.
 
 ### Scope Boundaries
@@ -188,6 +204,7 @@ nano-pixel-rl/
 - A polished web dashboard for leaderboard browsing.
 - Rich visualization tools beyond minimal debugging output.
 - Distributed training support.
+- A broad configuration system with many first-class benchmark knobs.
 
 **Outside this product's identity**
 
@@ -215,3 +232,4 @@ nano-pixel-rl/
 ### Sources / Research
 
 - `STRATEGY.md` defines the product thesis, primary users, metrics, and active tracks.
+- `karpathy/nanochat` comparison notes: README places the Time-to-GPT-2 leaderboard upfront, `runs/speedrun.sh` is the canonical reproduction script, `dev/LEADERBOARD.md` documents contribution rules, and the codebase uses uv plus a compact package/scripts/runs/tests shape.
