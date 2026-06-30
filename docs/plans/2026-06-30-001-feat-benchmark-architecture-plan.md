@@ -42,6 +42,8 @@ The shared token space is the core scaling bet: the model sees simple image-grid
 - **Learned tokenizer is a v2 suite bet:** Nanochat trains tokenization as part of the pipeline, but Nano Pixel RL v1 freezes tokenization; learned tokenization should wait until there is a suite of games where one shared tokenizer has to generalize.
 - **Single reference script:** A `runs/speedrun.sh` equivalent should remain the canonical way to reproduce the current leaderboard run.
 - **Single complexity dial:** The reference learner should expose one primary scale or budget dial whose downstream hyperparameters are derived, matching nanochat's bias against sprawling configuration.
+- **JAX-first runtime:** The environment transition, opponent heuristic, proposal interpreter, rollout batching, learner update, evaluation, and metric aggregation should be JAX-native so the benchmark can use `jit` and `vmap` end to end.
+- **WSL2 CUDA target:** GPU acceleration for the GTX 1660 Ti-class local target should assume Linux or WSL2, with native Windows treated as CPU-only for JAX smoke tests.
 
 ```mermaid
 flowchart TB
@@ -72,30 +74,38 @@ flowchart TB
 - R6. The benchmark must separate controllable and uncontrollable dynamics: one paddle is influenceable through legal proposals, the ball follows physics, and the opponent paddle is not directly controlled by the learner.
 - R7. The v1 benchmark must not include learned tokenization or alternate token vocabularies, even though the docs should name this as a likely future direction for a multi-game suite.
 
+**Runtime contract**
+
+- R8. The hot benchmark path must be written in JAX: environment step, heuristic opponent, proposal interpreter, batched rollouts, learner update, evaluation, and metric aggregation.
+- R9. The hot path must support vectorized execution over many environments using JAX transformations rather than Python loops.
+- R10. Non-JAX Python code may handle CLI, reports, docs, file IO, and orchestration, but it must not sit inside the per-step training or evaluation loop.
+- R11. The repo should use JAX-native RL libraries as design references for environment/state interfaces and batching patterns, but v1 should not depend on a large external RL framework unless it removes more complexity than it adds.
+- R12. The documented accelerated local path should target Linux or WSL2 with CUDA; native Windows should be supported only for CPU smoke tests unless JAX GPU support changes.
+
 **Contributor surface**
 
-- R8. The repo must make the intended editable surface obvious: contributors change learner algorithm code that maps input tokens to output tokens.
-- R9. The repo must document which surfaces are frozen for leaderboard-valid work, including token vocabulary, environment transition rules, legality checks, reward definitions, evaluator, and speedrun command semantics.
-- R10. The learner surface must support algorithm-level experimentation, including model shape, optimizer, memory/state, auxiliary losses, batching, and update logic.
-- R11. The learner surface must not require contributors to understand or modify backend environment plumbing for normal experimentation.
+- R13. The repo must make the intended editable surface obvious: contributors change learner algorithm code that maps input tokens to output tokens.
+- R14. The repo must document which surfaces are frozen for leaderboard-valid work, including token vocabulary, environment transition rules, legality checks, reward definitions, evaluator, and speedrun command semantics.
+- R15. The learner surface must support algorithm-level experimentation, including model shape, optimizer, memory/state, auxiliary losses, batching, and update logic.
+- R16. The learner surface must not require contributors to understand or modify backend environment plumbing for normal experimentation.
 
 **Speedrun and leaderboard**
 
-- R12. The repo must provide a canonical speedrun command that trains, evaluates, records wall-clock time, and emits a submission-ready result artifact.
-- R13. The leaderboard metric must be time-to-threshold, where the threshold is based on PixelPong point performance and valid run checks rather than prediction loss alone.
-- R14. The repo must define the scored-time convention clearly, including whether setup, evaluation, reporting, and failed threshold probes are included or excluded.
-- R15. Run artifacts must include enough metadata to audit validity, including code revision, seed settings, hardware summary, elapsed time, threshold result, invalid proposal rate, and prediction loss.
-- R16. The canonical run should generate a human-readable report and a machine-readable result artifact, with the report convenient to inspect from the repo root after the run.
-- R17. The v1 reference run should initially target signs of life within roughly 10 hours on modest local hardware such as a GTX 1660 Ti, with the expectation that contributors optimize it toward faster and stronger thresholds over time.
+- R17. The repo must provide a canonical speedrun command that trains, evaluates, records wall-clock time, and emits a submission-ready result artifact.
+- R18. The leaderboard metric must be time-to-threshold, where the threshold is based on PixelPong point performance and valid run checks rather than prediction loss alone.
+- R19. The repo must define the scored-time convention clearly, including whether setup, evaluation, reporting, and failed threshold probes are included or excluded.
+- R20. Run artifacts must include enough metadata to audit validity, including code revision, seed settings, hardware summary, elapsed time, threshold result, invalid proposal rate, and prediction loss.
+- R21. The canonical run should generate a human-readable report and a machine-readable result artifact, with the report convenient to inspect from the repo root after the run.
+- R22. The v1 reference run should initially target signs of life within roughly 10 hours on modest local hardware such as a GTX 1660 Ti, with the expectation that contributors optimize it toward faster and stronger thresholds over time.
 
 **Repo shape**
 
-- R18. The repo should separate frozen benchmark code from editable learner code in names and documentation, so contributors can tell what is fair game.
-- R19. The repo should include a small reference learner that is simple enough to modify and slow enough to leave room for speedrun improvements.
-- R20. The repo should prefer a compact nanochat-like shape: package code, scripts, runs, tests, docs, `pyproject.toml`, and a lockfile.
-- R21. The README should carry the public leaderboard and shortest path to the canonical speedrun, while detailed contribution rules can live in a deeper leaderboard doc.
-- R22. The repo should include docs that explain the shared-token thesis, leaderboard rules, validity rules, the v2 learned-tokenizer direction, and the shortest path from clone to first speedrun.
-- R23. The repo should include tests or validation checks that catch accidental changes to token meanings, environment dynamics, reward shape, and evaluator behavior.
+- R23. The repo should separate frozen benchmark code from editable learner code in names and documentation, so contributors can tell what is fair game.
+- R24. The repo should include a small reference learner that is simple enough to modify and slow enough to leave room for speedrun improvements.
+- R25. The repo should prefer a compact nanochat-like shape: package code, scripts, runs, tests, docs, `pyproject.toml`, and a lockfile.
+- R26. The README should carry the public leaderboard and shortest path to the canonical speedrun, while detailed contribution rules can live in a deeper leaderboard doc.
+- R27. The repo should include docs that explain the shared-token thesis, leaderboard rules, validity rules, the v2 learned-tokenizer direction, and the shortest path from clone to first speedrun.
+- R28. The repo should include tests or validation checks that catch accidental changes to token meanings, environment dynamics, reward shape, evaluator behavior, and JAX vectorization assumptions.
 
 ### Proposed Repo Design
 
@@ -119,6 +129,7 @@ nano-pixel-rl/
       pixelpong.py
       tokens.py
       interpreter.py
+      opponent.py
       rewards.py
     benchmark/
       speedrun.py
@@ -169,7 +180,7 @@ nano-pixel-rl/
 
 ### Acceptance Examples
 
-- AE1. **Covers R2, R3, R9.**
+- AE1. **Covers R2, R3, R14.**
   - **Given:** A contributor changes the meaning of token `0.5` from ball to something else.
   - **When:** The run is validated for leaderboard eligibility.
   - **Then:** The run is rejected because the token vocabulary is immutable.
@@ -179,19 +190,25 @@ nano-pixel-rl/
   - **When:** The environment interpreter processes the proposal.
   - **Then:** The impossible edit is rejected or ignored according to the fixed legality contract.
 
-- AE3. **Covers R5, R12.**
+- AE3. **Covers R5, R18.**
   - **Given:** A learner achieves low next-pixel prediction loss but cannot win points.
   - **When:** The speedrun evaluates threshold completion.
   - **Then:** The run does not qualify because point performance is the main threshold signal.
 
-- AE4. **Covers R8, R10, R11.**
+- AE4. **Covers R13, R15, R16.**
   - **Given:** A contributor changes model architecture and update logic inside the learner surface.
   - **When:** The speedrun validates the run.
   - **Then:** The run remains eligible if frozen benchmark surfaces are unchanged.
 
+- AE5. **Covers R8, R9, R10.**
+  - **Given:** A training run batches many PixelPong environments.
+  - **When:** The benchmark executes rollout and update steps.
+  - **Then:** The per-step loop stays inside JAX-transformed code rather than iterating environment steps in Python.
+
 ### Success Criteria
 
 - The first implementation plan can proceed without inventing the environment/learner boundary.
+- The implementation plan can proceed without inventing the runtime stack: JAX owns the hot benchmark path.
 - A new contributor can identify the editable learner surface in under five minutes from the README.
 - A speedrun result can be audited from its emitted artifact without reading the whole codebase.
 - Tests or validators fail when token meanings, reward components, evaluator semantics, or legality rules change unexpectedly.
@@ -208,6 +225,7 @@ nano-pixel-rl/
 - Rich visualization tools beyond minimal debugging output.
 - Distributed training support.
 - A broad configuration system with many first-class benchmark knobs.
+- Native Windows GPU support as a v1 requirement.
 
 **Outside this product's identity**
 
@@ -219,6 +237,8 @@ nano-pixel-rl/
 ### Dependencies / Assumptions
 
 - Python is the default implementation language unless planning finds a strong reason to choose otherwise.
+- JAX is the default accelerated runtime for v1; NumPy/Python fallbacks are acceptable only for tests, reports, or debugging helpers.
+- A GTX 1660 Ti can use JAX GPU acceleration through a compatible Linux or WSL2 CUDA setup, not native Windows GPU JAX.
 - The signs-of-life metric and later leaderboard threshold must be calibrated after a working reference learner exists.
 - The rough 10-hour GTX 1660 Ti target is a v1 accessibility goal, not yet an empirical measurement.
 - Leaderboard validity depends on social rules and repository checks; v1 does not need tamper-proof remote attestation.
@@ -232,8 +252,11 @@ nano-pixel-rl/
 - Whether the canonical command should be shell-first, Python CLI-first, or both.
 - Whether run artifacts should be JSON only or include a small markdown summary.
 - How strict validation should be for changes outside the learner surface in non-leaderboard local experiments.
+- Which JAX-native library patterns to copy first: gymnax-style env API, Jumanji-style typed state/specs, or a minimal local interface inspired by both.
 
 ### Sources / Research
 
 - `STRATEGY.md` defines the product thesis, primary users, metrics, and active tracks.
 - `karpathy/nanochat` comparison notes: README places the Time-to-GPT-2 leaderboard upfront, `runs/speedrun.sh` is the canonical reproduction script, `dev/LEADERBOARD.md` documents contribution rules, and the codebase uses uv plus a compact package/scripts/runs/tests shape.
+- JAX official installation docs: NVIDIA GPU support is available on Linux/WSL2 paths, while native Windows GPU is not a supported target.
+- JAX-native RL library references: gymnax for `jit`/`vmap` environment API patterns, Jumanji for scalable JAX environment-suite patterns, and Brax/Pgx for accelerator-oriented simulation examples.
