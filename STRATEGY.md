@@ -49,6 +49,12 @@ Lock down the image-token environment, proposal interpreter, legality checks, re
 
 _Why it serves the approach:_ A stable shared-token dynamics contract forces learners to distinguish predictable ball physics from controllable paddle influence while keeping the benchmark aligned with nanochat-style sequence modeling.
 
+### Multi-Game Tokenization Path
+
+Preserve a future path toward a learned tokenizer and a single model trained across a suite of small visual games.
+
+_Why it serves the approach:_ Nanochat trains its tokenizer as part of the system, but PixelPong v1 freezes the token space to isolate learner improvements; a learned tokenizer only becomes strategically useful once it has to serve multiple environments instead of overfitting one game.
+
 ### Reference Run Quality
 
 Maintain a simple baseline run that starts around one hour to threshold and can be optimized down over time.
@@ -58,6 +64,7 @@ _Why it serves the approach:_ The benchmark needs a credible baseline that is sl
 ## Not working on
 
 - A broad RL environment suite; PixelPong is the first tight benchmark.
+- A learned tokenizer for v1; tokenization becomes interesting when it is shared across a suite of games.
 - A new backend research platform; the backend should be fast, prebaked, and mostly untouched.
 - A general game-playing API with discrete action heads; the defining constraint is same-token-space frame proposal.
 

@@ -39,6 +39,7 @@ The shared token space is the core scaling bet: the model sees simple image-grid
 - **Shared input/output token space:** Observations and proposals use the same grid vocabulary, so the learner's job is to transform input tokens into output tokens.
 - **Algorithm-only competition surface:** Valid benchmark submissions may change learner internals, model architecture, loss weighting, optimization, memory, and update rules, but not the token vocabulary, environment rules, reward contract, or evaluator.
 - **Next-pixel prediction is central:** Dense frame prediction loss is part of the benchmark thesis, not a debugging metric.
+- **Learned tokenizer is a v2 suite bet:** Nanochat trains tokenization as part of the pipeline, but Nano Pixel RL v1 freezes tokenization; learned tokenization should wait until there is a suite of games where one shared tokenizer has to generalize.
 - **Single reference script:** A `runs/speedrun.sh` equivalent should remain the canonical way to reproduce the current leaderboard run.
 - **Single complexity dial:** The reference learner should expose one primary scale or budget dial whose downstream hyperparameters are derived, matching nanochat's bias against sprawling configuration.
 
@@ -69,31 +70,32 @@ flowchart TB
 - R4. The environment must interpret coherent paddle movement from the proposed frame and reject impossible edits without allowing the learner to bypass physics through direct state edits.
 - R5. The reward contract must include a large point-winning signal and a smaller dense next-pixel prediction signal.
 - R6. The benchmark must separate controllable and uncontrollable dynamics: one paddle is influenceable through legal proposals, the ball follows physics, and the opponent paddle is not directly controlled by the learner.
+- R7. The v1 benchmark must not include learned tokenization or alternate token vocabularies, even though the docs should name this as a likely future direction for a multi-game suite.
 
 **Contributor surface**
 
-- R7. The repo must make the intended editable surface obvious: contributors change learner algorithm code that maps input tokens to output tokens.
-- R8. The repo must document which surfaces are frozen for leaderboard-valid work, including token vocabulary, environment transition rules, legality checks, reward definitions, evaluator, and speedrun command semantics.
-- R9. The learner surface must support algorithm-level experimentation, including model shape, optimizer, memory/state, auxiliary losses, batching, and update logic.
-- R10. The learner surface must not require contributors to understand or modify backend environment plumbing for normal experimentation.
+- R8. The repo must make the intended editable surface obvious: contributors change learner algorithm code that maps input tokens to output tokens.
+- R9. The repo must document which surfaces are frozen for leaderboard-valid work, including token vocabulary, environment transition rules, legality checks, reward definitions, evaluator, and speedrun command semantics.
+- R10. The learner surface must support algorithm-level experimentation, including model shape, optimizer, memory/state, auxiliary losses, batching, and update logic.
+- R11. The learner surface must not require contributors to understand or modify backend environment plumbing for normal experimentation.
 
 **Speedrun and leaderboard**
 
-- R11. The repo must provide a canonical speedrun command that trains, evaluates, records wall-clock time, and emits a submission-ready result artifact.
-- R12. The leaderboard metric must be time-to-threshold, where the threshold is based on PixelPong point performance and valid run checks rather than prediction loss alone.
-- R13. The repo must define the scored-time convention clearly, including whether setup, evaluation, reporting, and failed threshold probes are included or excluded.
-- R14. Run artifacts must include enough metadata to audit validity, including code revision, seed settings, hardware summary, elapsed time, threshold result, invalid proposal rate, and prediction loss.
-- R15. The canonical run should generate a human-readable report and a machine-readable result artifact, with the report convenient to inspect from the repo root after the run.
-- R16. The reference run should initially target roughly one hour to threshold, with the expectation that contributors optimize it downward over time.
+- R12. The repo must provide a canonical speedrun command that trains, evaluates, records wall-clock time, and emits a submission-ready result artifact.
+- R13. The leaderboard metric must be time-to-threshold, where the threshold is based on PixelPong point performance and valid run checks rather than prediction loss alone.
+- R14. The repo must define the scored-time convention clearly, including whether setup, evaluation, reporting, and failed threshold probes are included or excluded.
+- R15. Run artifacts must include enough metadata to audit validity, including code revision, seed settings, hardware summary, elapsed time, threshold result, invalid proposal rate, and prediction loss.
+- R16. The canonical run should generate a human-readable report and a machine-readable result artifact, with the report convenient to inspect from the repo root after the run.
+- R17. The reference run should initially target roughly one hour to threshold, with the expectation that contributors optimize it downward over time.
 
 **Repo shape**
 
-- R17. The repo should separate frozen benchmark code from editable learner code in names and documentation, so contributors can tell what is fair game.
-- R18. The repo should include a small reference learner that is simple enough to modify and slow enough to leave room for speedrun improvements.
-- R19. The repo should prefer a compact nanochat-like shape: package code, scripts, runs, tests, docs, `pyproject.toml`, and a lockfile.
-- R20. The README should carry the public leaderboard and shortest path to the canonical speedrun, while detailed contribution rules can live in a deeper leaderboard doc.
-- R21. The repo should include docs that explain the shared-token thesis, leaderboard rules, validity rules, and the shortest path from clone to first speedrun.
-- R22. The repo should include tests or validation checks that catch accidental changes to token meanings, environment dynamics, reward shape, and evaluator behavior.
+- R18. The repo should separate frozen benchmark code from editable learner code in names and documentation, so contributors can tell what is fair game.
+- R19. The repo should include a small reference learner that is simple enough to modify and slow enough to leave room for speedrun improvements.
+- R20. The repo should prefer a compact nanochat-like shape: package code, scripts, runs, tests, docs, `pyproject.toml`, and a lockfile.
+- R21. The README should carry the public leaderboard and shortest path to the canonical speedrun, while detailed contribution rules can live in a deeper leaderboard doc.
+- R22. The repo should include docs that explain the shared-token thesis, leaderboard rules, validity rules, the v2 learned-tokenizer direction, and the shortest path from clone to first speedrun.
+- R23. The repo should include tests or validation checks that catch accidental changes to token meanings, environment dynamics, reward shape, and evaluator behavior.
 
 ### Proposed Repo Design
 
@@ -167,7 +169,7 @@ nano-pixel-rl/
 
 ### Acceptance Examples
 
-- AE1. **Covers R2, R3, R8.**
+- AE1. **Covers R2, R3, R9.**
   - **Given:** A contributor changes the meaning of token `0.5` from ball to something else.
   - **When:** The run is validated for leaderboard eligibility.
   - **Then:** The run is rejected because the token vocabulary is immutable.
@@ -182,7 +184,7 @@ nano-pixel-rl/
   - **When:** The speedrun evaluates threshold completion.
   - **Then:** The run does not qualify because point performance is the main threshold signal.
 
-- AE4. **Covers R7, R9, R10.**
+- AE4. **Covers R8, R10, R11.**
   - **Given:** A contributor changes model architecture and update logic inside the learner surface.
   - **When:** The speedrun validates the run.
   - **Then:** The run remains eligible if frozen benchmark surfaces are unchanged.
@@ -201,6 +203,7 @@ nano-pixel-rl/
 **Deferred for later**
 
 - Multiple environments beyond PixelPong.
+- Learned tokenization; this should be revisited when the benchmark becomes a suite of games with one shared tokenizer and one shared model.
 - A polished web dashboard for leaderboard browsing.
 - Rich visualization tools beyond minimal debugging output.
 - Distributed training support.
@@ -210,6 +213,7 @@ nano-pixel-rl/
 
 - A general Gym-compatible RL framework as the main interface.
 - Leaderboard-valid submissions that alter token meanings, environment physics, reward definitions, or evaluator thresholds.
+- PixelPong-only learned tokenizers that win by compressing one environment's representation instead of improving cross-environment learning.
 - Discrete action-head competition as the core benchmark shape.
 
 ### Dependencies / Assumptions
