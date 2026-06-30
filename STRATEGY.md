@@ -57,9 +57,9 @@ _Why it serves the approach:_ Nanochat trains its tokenizer as part of the syste
 
 ### Reference Run Quality
 
-Maintain a simple baseline run that starts around one hour to threshold and can be optimized down over time.
+Maintain a simple baseline run that can show credible learning signs within roughly 10 hours on modest local hardware such as a GTX 1660 Ti, then optimize toward faster and stronger thresholds over time.
 
-_Why it serves the approach:_ The benchmark needs a credible baseline that is slow enough to leave room for progress but fast enough for repeated local iteration.
+_Why it serves the approach:_ The benchmark needs a credible baseline that works on accessible hardware before it can become a tighter speedrun target.
 
 ## Not working on
 

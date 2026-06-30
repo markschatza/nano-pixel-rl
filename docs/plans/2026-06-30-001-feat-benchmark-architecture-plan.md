@@ -15,7 +15,7 @@ execution: code
 
 - **Objective:** Define the v1 architecture requirements for Nano Pixel RL before implementation begins.
 - **Product authority:** `STRATEGY.md`, especially the speedrun benchmark, editable learner surface, immutable shared token space, and next-pixel prediction thesis.
-- **Open blockers:** The exact grid dimensions, reference threshold, and initial baseline runtime must be calibrated during implementation.
+- **Open blockers:** The exact grid dimensions, signs-of-life metric, later leaderboard threshold, and initial baseline runtime must be calibrated during implementation.
 
 ---
 
@@ -86,7 +86,7 @@ flowchart TB
 - R14. The repo must define the scored-time convention clearly, including whether setup, evaluation, reporting, and failed threshold probes are included or excluded.
 - R15. Run artifacts must include enough metadata to audit validity, including code revision, seed settings, hardware summary, elapsed time, threshold result, invalid proposal rate, and prediction loss.
 - R16. The canonical run should generate a human-readable report and a machine-readable result artifact, with the report convenient to inspect from the repo root after the run.
-- R17. The reference run should initially target roughly one hour to threshold, with the expectation that contributors optimize it downward over time.
+- R17. The v1 reference run should initially target signs of life within roughly 10 hours on modest local hardware such as a GTX 1660 Ti, with the expectation that contributors optimize it toward faster and stronger thresholds over time.
 
 **Repo shape**
 
@@ -196,7 +196,7 @@ nano-pixel-rl/
 - A speedrun result can be audited from its emitted artifact without reading the whole codebase.
 - Tests or validators fail when token meanings, reward components, evaluator semantics, or legality rules change unexpectedly.
 - The canonical run feels nanochat-like: one obvious script, one obvious report, and one primary scale or budget dial.
-- The reference run is slow enough to invite optimization and fast enough to iterate locally.
+- The reference run can show measurable learning on modest local hardware before the project tightens into a stricter leaderboard threshold.
 
 ### Scope Boundaries
 
@@ -219,8 +219,8 @@ nano-pixel-rl/
 ### Dependencies / Assumptions
 
 - Python is the default implementation language unless planning finds a strong reason to choose otherwise.
-- The exact threshold must be calibrated after a working reference learner exists.
-- The initial one-hour target is a product goal, not yet an empirical measurement.
+- The signs-of-life metric and later leaderboard threshold must be calibrated after a working reference learner exists.
+- The rough 10-hour GTX 1660 Ti target is a v1 accessibility goal, not yet an empirical measurement.
 - Leaderboard validity depends on social rules and repository checks; v1 does not need tamper-proof remote attestation.
 
 ### Outstanding Questions
@@ -228,7 +228,7 @@ nano-pixel-rl/
 **Deferred to planning**
 
 - What initial grid size, paddle size, and episode length should v1 use?
-- What minimum local hardware target should define the reference one-hour run?
+- What concrete signs-of-life metric should count for the initial GTX 1660 Ti-friendly run?
 - Whether the canonical command should be shell-first, Python CLI-first, or both.
 - Whether run artifacts should be JSON only or include a small markdown summary.
 - How strict validation should be for changes outside the learner surface in non-leaderboard local experiments.
