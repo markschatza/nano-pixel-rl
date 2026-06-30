@@ -43,7 +43,7 @@ The shared token space is the core scaling bet: the model sees simple image-grid
 - **Single reference script:** A `runs/speedrun.sh` equivalent should remain the canonical way to reproduce the current leaderboard run.
 - **Single complexity dial:** The reference learner should expose one primary scale or budget dial whose downstream hyperparameters are derived, matching nanochat's bias against sprawling configuration.
 - **JAX-first runtime:** The environment transition, opponent heuristic, proposal interpreter, rollout batching, learner update, evaluation, and metric aggregation should be JAX-native so the benchmark can use `jit` and `vmap` end to end.
-- **WSL2 CUDA target:** GPU acceleration for the GTX 1660 Ti-class local target should assume Linux or WSL2, with native Windows treated as CPU-only for JAX smoke tests.
+- **Linux CUDA target:** GPU acceleration for the GTX 1660 Ti-class local target should assume native Linux CUDA first, with WSL2 as the secondary path for Windows-hosted machines and native Windows treated as CPU-only for JAX smoke tests.
 
 ```mermaid
 flowchart TB
@@ -80,7 +80,7 @@ flowchart TB
 - R9. The hot path must support vectorized execution over many environments using JAX transformations rather than Python loops.
 - R10. Non-JAX Python code may handle CLI, reports, docs, file IO, and orchestration, but it must not sit inside the per-step training or evaluation loop.
 - R11. The repo should use JAX-native RL libraries as design references for environment/state interfaces and batching patterns, but v1 should not depend on a large external RL framework unless it removes more complexity than it adds.
-- R12. The documented accelerated local path should target Linux or WSL2 with CUDA; native Windows should be supported only for CPU smoke tests unless JAX GPU support changes.
+- R12. The documented accelerated local path should target native Linux with CUDA first; WSL2 CUDA can be documented as a secondary path, and native Windows should be supported only for CPU smoke tests unless JAX GPU support changes.
 
 **Contributor surface**
 
@@ -238,7 +238,7 @@ nano-pixel-rl/
 
 - Python is the default implementation language unless planning finds a strong reason to choose otherwise.
 - JAX is the default accelerated runtime for v1; NumPy/Python fallbacks are acceptable only for tests, reports, or debugging helpers.
-- A GTX 1660 Ti can use JAX GPU acceleration through a compatible Linux or WSL2 CUDA setup, not native Windows GPU JAX.
+- The target GTX 1660 Ti machine is Linux, so the primary accelerated setup is native Linux CUDA with JAX.
 - The signs-of-life metric and later leaderboard threshold must be calibrated after a working reference learner exists.
 - The rough 10-hour GTX 1660 Ti target is a v1 accessibility goal, not yet an empirical measurement.
 - Leaderboard validity depends on social rules and repository checks; v1 does not need tamper-proof remote attestation.
