@@ -11,7 +11,9 @@ Small RL benchmarks are often either too toy-like to reveal useful learning impr
 
 ## Our approach
 
-Nano Pixel RL copies the nanoGPT/nanochat speedrun philosophy: keep the environment prebaked and stable, expose one user-facing `learner.update()` surface, and make time-to-threshold the organizing score. PixelPong makes the input and output the same simple token space, so improvements have to separate world prediction from controllable action rather than optimize a hand-written UP/DOWN policy head.
+Nano Pixel RL copies the nanoGPT/nanochat speedrun philosophy: keep the environment prebaked and stable, expose one user-facing `learner.update()` surface, and make time-to-threshold the organizing score. The scaling bet is that next-pixel prediction and control should share the same small token space, so progress on PixelPong feels like progress on a tiny version of the sequence-modeling problem rather than a one-off RL control trick.
+
+PixelPong makes the input and output the same simple image vocabulary, so improvements have to separate predictable world dynamics from controllable action rather than optimize a hand-written UP/DOWN policy head. The dense next-frame prediction loss is intentionally not just auxiliary bookkeeping: it is the pressure that makes the learner model what can be predicted, discover what can be influenced, and expose small architecture or update-rule improvements that could plausibly scale beyond this game.
 
 ## Who it's for
 
@@ -23,7 +25,7 @@ Nano Pixel RL copies the nanoGPT/nanochat speedrun philosophy: keep the environm
 
 - **Time-to-threshold** - Wall-clock time required to reach the reference PixelPong capability threshold; measured by the benchmark runner and leaderboard submission logs.
 - **Point-win performance** - Win rate or average point differential against the baked opponent after training; measured in evaluation rollouts.
-- **Frame prediction loss** - Dense next-frame prediction error over legal environment transitions; measured during training as the small auxiliary objective.
+- **Next-pixel prediction loss** - Dense next-frame prediction error over legal environment transitions in the same token space used for action proposals; measured during training as the small auxiliary objective.
 - **Invalid proposal rate** - Share of proposed next frames rejected for impossible edits or incoherent paddle movement; measured by the environment interpreter.
 - **Reference reproducibility** - Variance of the reference run across seeds and machines; measured by repeated `speedrun` runs before leaderboard updates.
 
@@ -43,9 +45,9 @@ _Why it serves the approach:_ Contributors can focus on learning improvements wh
 
 ### PixelPong Dynamics Contract
 
-Lock down the image-token environment, proposal interpreter, legality checks, rewards, and evaluation protocol.
+Lock down the image-token environment, proposal interpreter, legality checks, rewards, and evaluation protocol around a shared input/output vocabulary.
 
-_Why it serves the approach:_ A stable dynamics contract forces learners to distinguish predictable ball physics from controllable paddle influence.
+_Why it serves the approach:_ A stable shared-token dynamics contract forces learners to distinguish predictable ball physics from controllable paddle influence while keeping the benchmark aligned with nanochat-style sequence modeling.
 
 ### Reference Run Quality
 
@@ -63,4 +65,4 @@ _Why it serves the approach:_ The benchmark needs a credible baseline that is sl
 
 **One-liner:** A nanoGPT-style RL speedrun benchmark where the model plays PixelPong by proposing the next frame.
 
-**Key message:** Fast learner iteration, stable environment rules, and a leaderboard that rewards real reductions in time-to-threshold.
+**Key message:** Fast learner iteration, stable environment rules, and a leaderboard that rewards real reductions in time-to-threshold. The core bet is that next-pixel prediction in a shared action/observation token space can become a scalable nanochat-like playground for RL ideas.
