@@ -20,6 +20,7 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
     learner_state = learner.init(key)
     update_seconds = 0.0
     train_metrics = {}
+    last_progress_seconds = 0.0
 
     step_idx = 0
     while True:
@@ -36,6 +37,15 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
         update_seconds += time.perf_counter() - start
         train_metrics = {name: float(jnp.asarray(value)) for name, value in metrics.items()}
         step_idx += 1
+        if update_seconds - last_progress_seconds >= 300:
+            print(
+                "progress "
+                f"steps={step_idx} update_seconds={update_seconds:.1f} "
+                f"loss={train_metrics.get('loss', 0.0):.4f} "
+                f"paddle_window_loss={train_metrics.get('paddle_window_loss', 0.0):.4f}",
+                flush=True,
+            )
+            last_progress_seconds = update_seconds
 
     eval_result = evaluate(
         learner,

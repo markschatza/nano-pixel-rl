@@ -16,7 +16,9 @@ class Learner:
         self.config = config
         self.env_config = env_config
         self.optimizer = optax.adam(config.learning_rate)
-        self._jit_update = jax.jit(lambda state, batch: update_state(state, self.optimizer, batch))
+        self._jit_update = jax.jit(
+            lambda state, batch: update_state(state, self.optimizer, batch, self.config.paddle_window_weight)
+        )
         self._jit_logits = jax.jit(lambda params, frames: forward(params, frames))
 
     def init(self, key):

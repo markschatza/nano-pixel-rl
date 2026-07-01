@@ -30,17 +30,17 @@ def _paddle_window_loss(logits, obs, target):
     return optax.softmax_cross_entropy_with_integer_labels(candidate_scores, target_delta).mean()
 
 
-def loss_fn(params, batch):
+def loss_fn(params, batch, paddle_window_weight: float = 1.0):
     logits = forward(params, batch["obs"])
     prediction_loss = cross_entropy(logits, batch["target"], class_weights=jnp.asarray([0.05, 4.0, 6.0], dtype=jnp.float32))
     paddle_loss = _paddle_window_loss(logits, batch["obs"], batch["target"])
-    loss = prediction_loss + paddle_loss
+    loss = prediction_loss + paddle_window_weight * paddle_loss
     acc = token_accuracy(logits, batch["target"])
     return loss, {"prediction_loss": prediction_loss, "paddle_window_loss": paddle_loss, "token_accuracy": acc}
 
 
-def update_state(state: LearnerState, optimizer, batch):
-    (loss, metrics), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params, batch)
+def update_state(state: LearnerState, optimizer, batch, paddle_window_weight: float = 1.0):
+    (loss, metrics), grads = jax.value_and_grad(loss_fn, has_aux=True)(state.params, batch, paddle_window_weight)
     updates, opt_state = optimizer.update(grads, state.opt_state, state.params)
     params = optax.apply_updates(state.params, updates)
     metrics = dict(metrics)
