@@ -7,8 +7,9 @@ import jax.numpy as jnp
 
 from nano_pixel_rl.benchmark.evaluate import evaluate
 from nano_pixel_rl.benchmark.logging import git_revision, hardware_summary, write_artifacts
-from nano_pixel_rl.benchmark.rollout import make_training_batch
-from nano_pixel_rl.env.pixelpong import EnvConfig
+from nano_pixel_rl.benchmark.rollout import rollout_once
+from nano_pixel_rl.env.opponent import RANDOM_LEGAL
+from nano_pixel_rl.env.pixelpong import EnvConfig, render_frame, reset
 from nano_pixel_rl.learner import Learner
 from nano_pixel_rl.reference.config import TrainConfig, learner_config_for_size
 
@@ -21,6 +22,10 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
     update_seconds = 0.0
     train_metrics = {}
     last_progress_seconds = 0.0
+    env_keys = jax.random.split(jax.random.PRNGKey(train_config.seed + 1), train_config.num_envs)
+    states = jax.vmap(lambda k: reset(k, env_config))(env_keys)
+    current_frames = jax.vmap(lambda s: render_frame(s, env_config))(states)
+    prev_frames = current_frames
 
     step_idx = 0
     while True:
@@ -29,13 +34,32 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
                 break
         elif update_seconds >= train_config.duration_seconds and step_idx > 0:
             break
-        key, batch_key = jax.random.split(key)
-        batch = make_training_batch(batch_key, train_config.num_envs, env_config)
+        key, rollout_key = jax.random.split(key)
+        rollout_keys = jax.random.split(rollout_key, train_config.num_envs)
+        input_frames = jnp.stack([prev_frames, current_frames], axis=1)
+        rollout = rollout_once(
+            learner,
+            learner_state,
+            states,
+            rollout_keys,
+            RANDOM_LEGAL,
+            env_config,
+            input_frames=input_frames,
+        )
+        batch = {
+            "obs": rollout.obs,
+            "target": rollout.target,
+            "action_label": rollout.action_label,
+            "reward": rollout.rewards,
+        }
         start = time.perf_counter()
         learner_state, metrics = learner.update(learner_state, batch)
         jax.block_until_ready(learner_state.step)
         update_seconds += time.perf_counter() - start
         train_metrics = {name: float(jnp.asarray(value)) for name, value in metrics.items()}
+        states = rollout.final_states
+        prev_frames = current_frames
+        current_frames = rollout.target
         step_idx += 1
         if update_seconds - last_progress_seconds >= 300:
             print(
@@ -64,7 +88,6 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
             "completed_steps": step_idx,
             "duration_seconds": train_config.duration_seconds,
             "num_envs": train_config.num_envs,
-            "rollout_steps": train_config.rollout_steps,
             "eval_episodes": train_config.eval_episodes,
             "max_episode_steps": train_config.max_episode_steps,
             "model_size": model_size,

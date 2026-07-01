@@ -29,13 +29,3 @@ def test_learner_proposal_decodes_coherent_paddle():
     action = interpret_proposal(proposal[0], env_state, env_config)
     assert bool(action.valid)
 
-
-def test_tracking_prior_moves_toward_ball():
-    env_config = EnvConfig()
-    learner = Learner(LearnerConfig(hidden_dim=16, tracking_prior_weight=100.0), env_config)
-    learner_state = learner.init(jax.random.PRNGKey(0))
-    env_state = reset(jax.random.PRNGKey(2), env_config)._replace(ball_y=env_config.height - 2)
-    obs = render_frame(env_state, env_config)[None, ...]
-    proposal = learner.propose(learner_state, obs)
-    action = interpret_proposal(proposal[0], env_state, env_config)
-    assert int(action.delta) == 1

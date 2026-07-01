@@ -18,6 +18,7 @@ class RolloutBatch(NamedTuple):
     rewards: jnp.ndarray
     invalid: jnp.ndarray
     prediction_loss: jnp.ndarray
+    action_label: jnp.ndarray
     final_states: object
 
 
@@ -87,5 +88,6 @@ def rollout_once(
         rewards=rewards,
         invalid=~actions.valid,
         prediction_loss=losses,
+        action_label=(actions.delta + 1).astype(jnp.int32),
         final_states=next_states,
     )

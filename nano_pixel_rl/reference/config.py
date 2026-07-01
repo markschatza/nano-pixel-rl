@@ -9,7 +9,6 @@ class LearnerConfig:
     learning_rate: float = 1e-3
     prediction_weight: float = 0.05
     paddle_window_weight: float = 5.0
-    tracking_prior_weight: float = 10.0
     hidden_dim: int = 64
     context_frames: int = 2
 
@@ -20,7 +19,6 @@ class TrainConfig:
     steps: int = 200
     duration_seconds: float | None = None
     num_envs: int = 128
-    rollout_steps: int = 32
     eval_episodes: int = 64
     max_episode_steps: int = 256
 

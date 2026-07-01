@@ -42,7 +42,6 @@ class Learner:
             current_frame,
             self.env_config.player_x,
             self.env_config.paddle_height,
-            self.config.tracking_prior_weight,
         )
 
     def update(self, state: LearnerState, batch):
