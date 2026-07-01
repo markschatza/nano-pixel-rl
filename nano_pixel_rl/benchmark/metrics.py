@@ -8,10 +8,13 @@ def token_accuracy(logits, target_frame):
     return jnp.mean((pred == target_frame).astype(jnp.float32))
 
 
-def cross_entropy(logits, target_frame):
+def cross_entropy(logits, target_frame, class_weights=None):
     log_probs = logits - jax_logsumexp(logits, axis=-1, keepdims=True)
     gathered = jnp.take_along_axis(log_probs, target_frame[..., None].astype(jnp.int32), axis=-1)[..., 0]
-    return -jnp.mean(gathered)
+    if class_weights is None:
+        return -jnp.mean(gathered)
+    weights = jnp.take(jnp.asarray(class_weights, dtype=jnp.float32), target_frame.astype(jnp.int32))
+    return -jnp.sum(gathered * weights) / jnp.maximum(jnp.sum(weights), 1.0)
 
 
 def jax_logsumexp(x, axis=None, keepdims=False):

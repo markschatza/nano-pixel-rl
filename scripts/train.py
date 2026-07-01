@@ -13,6 +13,8 @@ from nano_pixel_rl.reference.config import TrainConfig
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--steps", type=int, default=10)
+    parser.add_argument("--duration-seconds", type=float, default=None)
+    parser.add_argument("--duration-hours", type=float, default=None)
     parser.add_argument("--num-envs", type=int, default=32)
     parser.add_argument("--eval-episodes", type=int, default=32)
     parser.add_argument("--max-episode-steps", type=int, default=256)
@@ -20,10 +22,14 @@ def main():
     parser.add_argument("--model-size", default="tiny")
     parser.add_argument("--out", default="artifacts/runs/latest")
     args = parser.parse_args()
+    duration_seconds = args.duration_seconds
+    if args.duration_hours is not None:
+        duration_seconds = args.duration_hours * 3600.0
     result, json_path, md_path = run_speedrun(
         TrainConfig(
             seed=args.seed,
             steps=args.steps,
+            duration_seconds=duration_seconds,
             num_envs=args.num_envs,
             eval_episodes=args.eval_episodes,
             max_episode_steps=args.max_episode_steps,

@@ -22,10 +22,34 @@ class RolloutBatch(NamedTuple):
 
 
 def make_random_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig()):
+    return make_heuristic_batch(key, batch_size, env_config)
+
+
+def _track_player_delta(state, env_config: EnvConfig):
+    center = state.player_y + env_config.paddle_height // 2
+    return jnp.sign(state.ball_y - center).astype(jnp.int32)
+
+
+def _randomize_state(key, env_config: EnvConfig):
+    state = reset(key, env_config)
+    keys = jax.random.split(key, 12)
+
+    def body(s, k):
+        player_delta = jax.random.randint(k, (), -1, 2, dtype=jnp.int32)
+        opponent = jnp.sign(s.ball_y - (s.opponent_y + env_config.paddle_height // 2)).astype(jnp.int32)
+        return step(s, player_delta, opponent, env_config), None
+
+    state, _ = jax.lax.scan(body, state, keys)
+    return state
+
+
+def make_heuristic_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig()):
     keys = jax.random.split(key, batch_size)
-    states = jax.vmap(lambda k: reset(k, env_config))(keys)
+    states = jax.vmap(lambda k: _randomize_state(k, env_config))(keys)
     obs = jax.vmap(lambda s: render_frame(s, env_config))(states)
-    next_states = jax.vmap(lambda s: step(s, 0, 0, env_config))(states)
+    player_deltas = jax.vmap(lambda s: _track_player_delta(s, env_config))(states)
+    opponent_deltas = jax.vmap(lambda s: jnp.sign(s.ball_y - (s.opponent_y + env_config.paddle_height // 2)).astype(jnp.int32))(states)
+    next_states = jax.vmap(lambda s, p, o: step(s, p, o, env_config))(states, player_deltas, opponent_deltas)
     target = jax.vmap(lambda s: render_frame(s, env_config))(next_states)
     return {"obs": obs, "target": target}
 

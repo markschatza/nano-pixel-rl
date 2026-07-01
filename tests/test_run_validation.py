@@ -7,6 +7,7 @@ def valid_result():
         "seed": 0,
         "hardware": {},
         "update_time_seconds": 1.0,
+        "completed_run": True,
         "threshold_reached": True,
         "eval": {"win_rate_random_legal": 0.9, "win_rate_delayed_tracker": 0.5},
         "train_metrics": {"prediction_loss": 1.0},

@@ -8,6 +8,7 @@ class LearnerConfig:
     model_size: str = "tiny"
     learning_rate: float = 3e-4
     prediction_weight: float = 0.05
+    paddle_window_weight: float = 1.0
     hidden_dim: int = 64
     context_frames: int = 1
 
@@ -16,6 +17,7 @@ class LearnerConfig:
 class TrainConfig:
     seed: int = 0
     steps: int = 200
+    duration_seconds: float | None = None
     num_envs: int = 128
     rollout_steps: int = 32
     eval_episodes: int = 64

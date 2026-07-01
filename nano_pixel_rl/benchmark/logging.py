@@ -33,6 +33,7 @@ def write_artifacts(out_dir, result):
                 "# Nano Pixel RL Run Report",
                 "",
                 f"- Threshold reached: `{result['threshold_reached']}`",
+                f"- Completed run: `{result['completed_run']}`",
                 f"- Update time seconds: `{result['update_time_seconds']:.6f}`",
                 f"- Random/legal win rate: `{result['eval']['win_rate_random_legal']:.3f}`",
                 f"- Delayed tracker win rate: `{result['eval']['win_rate_delayed_tracker']:.3f}`",

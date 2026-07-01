@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-uv run python scripts/train.py "$@"
+if command -v uv >/dev/null 2>&1; then
+  uv run --extra cuda python scripts/train.py "$@"
+else
+  .venv/bin/python scripts/train.py "$@"
+fi

@@ -9,6 +9,7 @@ REQUIRED_KEYS = {
     "seed",
     "hardware",
     "update_time_seconds",
+    "completed_run",
     "threshold_reached",
     "eval",
     "train_metrics",
@@ -25,6 +26,8 @@ def validate_result(result):
     ) >= 0.50
     if result["threshold_reached"] != threshold:
         return False, "threshold_reached does not match win-rate gates"
+    if not result["completed_run"]:
+        return False, "run did not complete its requested training budget"
     return True, "ok"
 
 

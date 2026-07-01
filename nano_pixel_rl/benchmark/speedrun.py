@@ -21,15 +21,21 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
     update_seconds = 0.0
     train_metrics = {}
 
-    for step_idx in range(train_config.steps):
+    step_idx = 0
+    while True:
+        if train_config.duration_seconds is None:
+            if step_idx >= train_config.steps:
+                break
+        elif update_seconds >= train_config.duration_seconds and step_idx > 0:
+            break
         key, batch_key = jax.random.split(key)
         batch = make_random_batch(batch_key, train_config.num_envs, env_config)
         start = time.perf_counter()
         learner_state, metrics = learner.update(learner_state, batch)
         jax.block_until_ready(learner_state.step)
         update_seconds += time.perf_counter() - start
-        if step_idx == train_config.steps - 1:
-            train_metrics = {name: float(jnp.asarray(value)) for name, value in metrics.items()}
+        train_metrics = {name: float(jnp.asarray(value)) for name, value in metrics.items()}
+        step_idx += 1
 
     eval_result = evaluate(
         learner,
@@ -45,6 +51,8 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
         "hardware": hardware_summary(),
         "config": {
             "steps": train_config.steps,
+            "completed_steps": step_idx,
+            "duration_seconds": train_config.duration_seconds,
             "num_envs": train_config.num_envs,
             "rollout_steps": train_config.rollout_steps,
             "eval_episodes": train_config.eval_episodes,
@@ -52,6 +60,7 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
             "model_size": model_size,
         },
         "update_time_seconds": update_seconds,
+        "completed_run": train_config.duration_seconds is None or update_seconds >= train_config.duration_seconds,
         "threshold_reached": bool(eval_result["threshold_reached"]),
         "eval": eval_result,
         "train_metrics": train_metrics,

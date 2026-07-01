@@ -38,13 +38,16 @@ def _center_start(config: EnvConfig):
 
 
 def reset(key, config: EnvConfig = EnvConfig()) -> EnvState:
-    del key
+    y_key, vx_key, vy_key = jax.random.split(key, 3)
     center = _center_start(config)
+    ball_y = jax.random.randint(y_key, (), 2, config.height - 2, dtype=jnp.int32)
+    vel_x = jnp.where(jax.random.bernoulli(vx_key), 1, -1).astype(jnp.int32)
+    vel_y = jnp.where(jax.random.bernoulli(vy_key), 1, -1).astype(jnp.int32)
     return EnvState(
-        ball_y=jnp.asarray(config.height // 2, dtype=jnp.int32),
+        ball_y=ball_y,
         ball_x=jnp.asarray(config.width // 2, dtype=jnp.int32),
-        vel_y=jnp.asarray(1, dtype=jnp.int32),
-        vel_x=jnp.asarray(1, dtype=jnp.int32),
+        vel_y=vel_y,
+        vel_x=vel_x,
         player_y=center,
         opponent_y=center,
         player_score=jnp.asarray(0, dtype=jnp.int32),
