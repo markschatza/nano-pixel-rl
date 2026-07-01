@@ -15,7 +15,7 @@ execution: code
 
 - **Objective:** Build the v1 Nano Pixel RL benchmark around PixelPong, including the frozen JAX environment, editable tiny-transformer learner, speedrun runner, docs, tests, and first signs-of-life training workflow.
 - **Product authority:** `STRATEGY.md`, especially the speedrun benchmark, editable learner surface, immutable shared token space, and next-pixel prediction thesis.
-- **Execution profile:** Implement on a feature branch, preserve the public repo's frozen benchmark contract, and keep all contributor-facing algorithm changes inside `nano_pixel_rl/learner/`.
+- **Execution profile:** Implement on a feature branch, preserve the public repo's frozen benchmark contract, keep all contributor-facing algorithm changes inside `nano_pixel_rl/learner/`, and treat the remote Aesop Linux/CUDA machine as the authoritative test and training target after local CPU smoke checks.
 - **Stop condition:** After implementation and review, run up to three complete uninterrupted five-hour training sessions; stop early if the signs-of-life threshold is reached, and stop after the third failed complete session if it is not.
 - **Open blockers:** None for v1 implementation; later leaderboard thresholds remain calibration work after a working baseline exists.
 
@@ -318,7 +318,7 @@ Python owns CLI parsing, artifact paths, markdown reports, and long-run orchestr
 - The repo uses `uv`, `pyproject.toml`, and a compact package layout modeled after nanochat.
 - Required runtime dependencies are `jax`, `jaxlib`, `optax`, and `numpy`; optional accelerator install instructions live in docs rather than in platform-specific lockfile magic.
 - V1 prioritizes a correct editable benchmark over a highly tuned model.
-- Native Windows may run CPU smoke tests, but the expected long training runs happen on Linux CUDA.
+- Native Windows may run CPU smoke tests, but most validation and all long training runs happen on the remote Aesop Linux/CUDA machine.
 
 ### Sequencing
 
@@ -429,7 +429,8 @@ Python owns CLI parsing, artifact paths, markdown reports, and long-run orchestr
 | Artifact validation | `uv run python scripts/report.py --validate <run-json>` | U6, U7 |
 | Review pass | `ce-code-review mode:agent plan:docs/plans/2026-06-30-001-feat-benchmark-architecture-plan.md base:origin/main` or equivalent review output | U7 |
 | Simplification pass | `ce-simplify-code` on the current branch diff with tests rerun | U7 |
-| Signs-of-life sessions | Up to three complete five-hour `runs/speedrun.sh` sessions with run artifacts | U7 |
+| Remote Linux/CUDA validation | Sync branch to Aesop, install with `uv`, run `uv run --extra dev pytest`, and run `bash runs/smoke.sh` | U1-U7 |
+| Signs-of-life sessions | Up to three complete five-hour `runs/speedrun.sh` sessions on Aesop with run artifacts | U7 |
 
 The signs-of-life gate passes only when evaluation reaches at least `90%` win rate versus random/legal and at least `50%` win rate versus delayed tracker on fixed evaluation seeds.
 Prediction loss, invalid proposal rate, and update time are required diagnostics but cannot replace the win-rate threshold.
@@ -443,7 +444,7 @@ Prediction loss, invalid proposal rate, and update time are required diagnostics
 - The JAX environment, interpreter, opponent ladder, reward contract, rollout, evaluation, and metrics run in batched form.
 - The editable learner surface exposes a tiny transformer-style `learner.update()` path and keeps normal algorithm changes out of frozen benchmark code.
 - The canonical smoke command runs locally and writes valid JSON and markdown artifacts.
-- The canonical speedrun command can run five-hour sessions and measure only learner training/update time for the leaderboard score.
+- The canonical speedrun command can run five-hour sessions on Aesop and measure only learner training/update time for the leaderboard score.
 - Full tests pass after simplification and review fixes.
 - Long-run artifacts prove either the signs-of-life threshold was reached or three complete uninterrupted five-hour sessions failed to reach it.
 - Dead-end experimental code, abandoned scripts, and untracked generated files are removed or ignored before final handoff.
