@@ -4,7 +4,7 @@ type: feat
 date: 2026-06-30
 topic: benchmark-architecture
 artifact_contract: ce-unified-plan/v1
-artifact_readiness: requirements-only
+artifact_readiness: implementation-ready
 product_contract_source: ce-brainstorm
 execution: code
 ---
@@ -13,9 +13,11 @@ execution: code
 
 ## Goal Capsule
 
-- **Objective:** Define the v1 architecture requirements for Nano Pixel RL before implementation begins.
+- **Objective:** Build the v1 Nano Pixel RL benchmark around PixelPong, including the frozen JAX environment, editable tiny-transformer learner, speedrun runner, docs, tests, and first signs-of-life training workflow.
 - **Product authority:** `STRATEGY.md`, especially the speedrun benchmark, editable learner surface, immutable shared token space, and next-pixel prediction thesis.
-- **Open blockers:** The exact grid dimensions, signs-of-life metric, later leaderboard threshold, and initial baseline runtime must be calibrated during implementation.
+- **Execution profile:** Implement on a feature branch, preserve the public repo's frozen benchmark contract, and keep all contributor-facing algorithm changes inside `nano_pixel_rl/learner/`.
+- **Stop condition:** After implementation and review, run up to three complete uninterrupted five-hour training sessions; stop early if the signs-of-life threshold is reached, and stop after the third failed complete session if it is not.
+- **Open blockers:** None for v1 implementation; later leaderboard thresholds remain calibration work after a working baseline exists.
 
 ---
 
@@ -270,3 +272,178 @@ nano-pixel-rl/
 - `karpathy/nanochat` comparison notes: README places the Time-to-GPT-2 leaderboard upfront, `runs/speedrun.sh` is the canonical reproduction script, `dev/LEADERBOARD.md` documents contribution rules, and the codebase uses uv plus a compact package/scripts/runs/tests shape.
 - JAX official installation docs: NVIDIA GPU support is available on Linux/WSL2 paths, while native Windows GPU is not a supported target.
 - JAX-native RL library references: gymnax for `jit`/`vmap` environment API patterns, Jumanji for scalable JAX environment-suite patterns, and Brax/Pgx for accelerator-oriented simulation examples.
+
+---
+
+## Planning Contract
+
+### Key Technical Decisions
+
+- KTD1. **Fixed v1 PixelPong geometry:** Use a `16x16` grid, a single-cell ball, vertical paddles of height `3`, the learner-controlled paddle at `x=1`, and the opponent paddle at `x=14`.
+  This is large enough for visible dynamics and small enough for cheap sequence modeling on a GTX 1660 Ti-class machine.
+- KTD2. **Integer internal tokens with float public meanings:** Store frame tokens internally as `uint8` IDs `0`, `1`, and `2`, while docs and reports map them to public values `0`, `0.5`, and `1`.
+  This preserves the immutable token contract while keeping JAX losses and indexing simple.
+- KTD3. **Proposal-as-action interpreter:** Convert a proposed next frame into one of three legal paddle deltas by reading only the controlled paddle column and rejecting incoherent paddle edits.
+  The proposal may predict ball and opponent pixels for dense loss, but those pixels never directly mutate environment state.
+- KTD4. **Physics owns the ball and opponent:** The JAX environment updates ball position, wall bounces, paddle collisions, scores, episode resets, and opponent movement from state, not from learner-proposed pixels.
+  This enforces the predictable-versus-controllable split that defines the benchmark.
+- KTD5. **Tiny transformer as the editable learner:** Implement the baseline as a compact JAX/Optax transformer-style next-frame predictor with a single `learner.update()` entry point and one main scale dial.
+  The reference should be understandable enough to edit while leaving room for algorithmic improvements.
+- KTD6. **Training-time accounting wraps update work only:** The speedrun runner measures learner update wall-clock time around train/update calls and excludes dependency setup, evaluation, report writing, and validation.
+  This matches the user's scoring convention and keeps early benchmarking honest.
+- KTD7. **Validation is social plus automated checks:** V1 should not attempt tamper-proof attestation.
+  It should emit enough metadata and run enough contract tests to make frozen-surface changes obvious during review.
+
+### High-Level Technical Design
+
+```mermaid
+flowchart TB
+  CLI[runs/speedrun.sh] --> Runner[scripts/train.py]
+  Runner --> Speedrun[nano_pixel_rl/benchmark/speedrun.py]
+  Speedrun --> Rollout[nano_pixel_rl/benchmark/rollout.py]
+  Rollout --> Env[nano_pixel_rl/env/pixelpong.py]
+  Rollout --> Learner[nano_pixel_rl/learner/learner.py]
+  Learner --> Proposal[full next-frame proposal logits]
+  Proposal --> Interpreter[nano_pixel_rl/env/interpreter.py]
+  Interpreter --> Env
+  Env --> Metrics[nano_pixel_rl/benchmark/metrics.py]
+  Metrics --> Artifacts[artifacts/runs/*.json and *.md]
+```
+
+The hot loop is JAX-native: batched reset, batched rollout, proposal interpretation, environment step, loss computation, optimizer update, and metric aggregation all sit behind `jax.jit` and `jax.vmap` where practical.
+Python owns CLI parsing, artifact paths, markdown reports, and long-run orchestration.
+
+### Implementation Assumptions
+
+- The repo uses `uv`, `pyproject.toml`, and a compact package layout modeled after nanochat.
+- Required runtime dependencies are `jax`, `jaxlib`, `optax`, and `numpy`; optional accelerator install instructions live in docs rather than in platform-specific lockfile magic.
+- V1 prioritizes a correct editable benchmark over a highly tuned model.
+- Native Windows may run CPU smoke tests, but the expected long training runs happen on Linux CUDA.
+
+### Sequencing
+
+1. Build repo scaffolding, dependency metadata, README, and frozen-surface docs.
+2. Implement and test the JAX token, environment, opponent, interpreter, reward, rollout, and validation contracts.
+3. Implement and test the tiny transformer learner and update timing surface.
+4. Add speedrun CLI, run artifacts, leaderboard docs, and smoke scripts.
+5. Run contract tests, simplify, review, fix review findings, then start five-hour training sessions.
+
+### Risks and Mitigations
+
+| Risk | Mitigation |
+|---|---|
+| The tiny transformer does not reach signs of life in the first three sessions. | Preserve artifacts for each complete session, report metrics, and stop after the requested third failed uninterrupted run. |
+| Python loops leak into the hot path. | Add tests that inspect batched JAX functions and keep rollout/update APIs array-first. |
+| The learner exploits the proposal surface by editing non-controlled pixels. | Keep interpreter authority narrow: only coherent controlled-paddle movement becomes action. |
+| The immutable token contract drifts during iteration. | Centralize token constants and add contract tests for public meanings, frame encoding, and docs references. |
+| Training accounting becomes misleading. | Isolate update-time timers in the speedrun runner and include raw setup/eval/report timings only as unscored metadata. |
+
+### Deferred Implementation-Time Unknowns
+
+- The first working learner may need dense-loss weighting, entropy/legality penalties, batch size, or context length tuning to show learning; these are editable learner-surface decisions, not benchmark-contract changes.
+- The exact five-hour command may vary between local Windows smoke and Linux CUDA training; the canonical script should expose duration and device visibility without changing scored semantics.
+
+---
+
+## Implementation Units
+
+### U1. Repo Scaffold and Contributor Contract
+
+- **Goal:** Create the nanochat-like repo shape, dependency metadata, README, leaderboard docs, and frozen/editable surface documentation.
+- **Requirements:** R1, R7, R14, R15, R19, R23, R26, R28, R29, R30.
+- **Files:** Create `README.md`, `pyproject.toml`, `dev/LEADERBOARD.md`, `dev/LOG.md`, `docs/benchmark-contract.md`, `docs/learner-guide.md`, `runs/smoke.sh`, and package `__init__.py` files.
+- **Approach:** Document the immutable token space, shared input/output proposal thesis, speedrun target, scored-time convention, Linux CUDA preference, and contributor rule that learner code is the normal editable surface.
+- **Patterns:** Follow `STRATEGY.md` language and the existing `docs/plans/` contract vocabulary.
+- **Test Scenarios:** `README.md` names the speedrun command; docs list frozen and editable surfaces; `pyproject.toml` exposes package metadata and test dependencies.
+- **Verification:** `uv run python -m pytest tests/test_docs_contract.py` passes after docs contract tests exist.
+
+### U2. JAX PixelPong Environment and Tokens
+
+- **Goal:** Implement the frozen PixelPong state, token constants, frame encoder, physics step, reset, scoring, and opponent ladder in JAX.
+- **Requirements:** R1, R2, R6, R8, R9, R10, R11, R13, R31.
+- **Files:** Create `nano_pixel_rl/env/tokens.py`, `nano_pixel_rl/env/pixelpong.py`, `nano_pixel_rl/env/opponent.py`, `nano_pixel_rl/env/rewards.py`, and tests under `tests/test_tokens.py`, `tests/test_pixelpong_dynamics.py`, `tests/test_opponents.py`, `tests/test_reward_contract.py`.
+- **Approach:** Use dataclass-like JAX pytrees for environment state, expose `reset(key, config)`, `step(state, action, opponent_kind, key, config)`, and `render_frame(state, config)`, then vectorize with `jax.vmap` in tests.
+- **Patterns:** Copy gymnax-style functional reset/step shape without taking a framework dependency.
+- **Test Scenarios:** Fixed seeds produce legal frames; wall bounces invert vertical velocity; paddle collisions invert horizontal velocity; misses award points and reset ball; random/legal, delayed, and near-perfect opponents emit legal deltas; `vmap` over multiple states returns stacked frames and metrics.
+- **Verification:** `uv run python -m pytest tests/test_tokens.py tests/test_pixelpong_dynamics.py tests/test_opponents.py tests/test_reward_contract.py` passes.
+
+### U3. Proposal Interpreter and Dense Prediction Metrics
+
+- **Goal:** Convert full-frame learner proposals into coherent paddle actions while computing validity and next-frame prediction metrics.
+- **Requirements:** R3, R4, R5, R6, R9, R10, R15, R21, R22, R31.
+- **Files:** Create `nano_pixel_rl/env/interpreter.py`, `nano_pixel_rl/benchmark/metrics.py`, `tests/test_interpreter_legality.py`, and `tests/test_metrics.py`.
+- **Approach:** Read the controlled paddle column from the proposal, accept only one contiguous paddle of the configured height within one-cell movement from the current paddle, demote illegal proposals to no-op, and compute invalid proposal rate plus token-level cross-entropy/accuracy against the actual next frame.
+- **Patterns:** Keep interpreter functions pure and array-first so rollout can `jit` and `vmap` them.
+- **Test Scenarios:** Legal up/down/no-op proposals map to the right deltas; teleported paddles are rejected; disconnected or wrong-height paddles are rejected; proposed ball/opponent edits do not change physics; metric aggregation reports invalid proposal rate and prediction loss.
+- **Verification:** `uv run python -m pytest tests/test_interpreter_legality.py tests/test_metrics.py` passes.
+
+### U4. Editable Tiny Transformer Learner
+
+- **Goal:** Implement the reference learner with a compact `learner.update()` API that maps frame-token histories to next-frame proposal logits.
+- **Requirements:** R14, R16, R17, R18, R21, R24, R27.
+- **Files:** Create `nano_pixel_rl/learner/model.py`, `nano_pixel_rl/learner/learner.py`, `nano_pixel_rl/learner/update.py`, `nano_pixel_rl/reference/config.py`, and tests under `tests/test_learner_update.py`.
+- **Approach:** Use JAX arrays and Optax to build token embeddings, positional embeddings, a small causal/self-attention block, MLP head, optimizer state, and `update(state, batch, key)` returning the next learner state plus scalar metrics.
+- **Patterns:** Keep all algorithmic experimentation in `nano_pixel_rl/learner/`; keep config small with one primary scale dial such as `model_size`.
+- **Test Scenarios:** Initialization is deterministic by seed; forward logits have shape `[batch, height, width, vocab]`; one update changes parameters and returns finite losses; learner code can be imported without initializing the environment backend.
+- **Verification:** `uv run python -m pytest tests/test_learner_update.py` passes.
+
+### U5. Batched Rollout and Training Loop
+
+- **Goal:** Wire environment, interpreter, learner, rewards, and metrics into a JAX-first batched training loop.
+- **Requirements:** R1, R5, R6, R8, R9, R10, R11, R16, R19, R20, R21, R24, R25.
+- **Files:** Create `nano_pixel_rl/benchmark/rollout.py`, `nano_pixel_rl/benchmark/speedrun.py`, `scripts/train.py`, `scripts/eval.py`, and tests under `tests/test_rollout_training.py`.
+- **Approach:** Run many environments in parallel, collect learner proposals, interpret actions, step the environment, compute dense frame loss and point rewards, call `learner.update()`, and accumulate scored update time separately from eval/report time.
+- **Patterns:** Keep Python orchestration outside the per-step body; use `jax.jit` on rollout/update kernels and expose small smoke-friendly defaults.
+- **Test Scenarios:** A smoke train run completes on CPU; scored update time is positive and excludes eval/report phases; eval reports win rates against random/legal and delayed opponents; fixed eval seeds make repeated short evals stable.
+- **Verification:** `uv run python -m pytest tests/test_rollout_training.py` passes, and `uv run python scripts/train.py --steps 2 --num-envs 8 --eval-episodes 8 --out artifacts/smoke` writes artifacts.
+
+### U6. Speedrun Artifacts, Validation, and Leaderboard Rules
+
+- **Goal:** Produce submission-ready run artifacts, validate frozen-surface semantics, and provide canonical run scripts.
+- **Requirements:** R19, R20, R21, R22, R23, R25, R29, R30, R31.
+- **Files:** Create `nano_pixel_rl/benchmark/validate_run.py`, `nano_pixel_rl/benchmark/logging.py`, `scripts/report.py`, `runs/speedrun.sh`, and tests under `tests/test_run_validation.py`.
+- **Approach:** Emit JSON plus markdown summaries containing git revision, seeds, hardware summary, update time, threshold status, win rates, invalid proposal rate, prediction loss, config, and leaderboard validity checks.
+- **Patterns:** Mirror nanochat's canonical `runs/speedrun.sh` convention and keep detailed leaderboard rules in `dev/LEADERBOARD.md`.
+- **Test Scenarios:** Valid smoke artifact passes validation; missing metadata fails; threshold status requires both win-rate gates; prediction loss alone cannot mark a run valid; `runs/speedrun.sh --help` or equivalent explains duration and output path.
+- **Verification:** `uv run python -m pytest tests/test_run_validation.py` passes, and `bash runs/smoke.sh` completes on a CPU-capable environment.
+
+### U7. Quality Pass and Signs-of-Life Training Sessions
+
+- **Goal:** Review, simplify, and run the first training sessions under the requested stop condition.
+- **Requirements:** R19, R20, R21, R22, R24, R25, R31.
+- **Files:** Modify code from U1-U6 as review findings require; write artifacts under `artifacts/runs/` and notes in `dev/LOG.md`.
+- **Approach:** Run the full test suite, run `ce-simplify-code` on the changed implementation, run `ce-code-review`, apply actionable fixes, then run up to three complete uninterrupted five-hour training sessions until the signs-of-life gates pass or the third complete session fails.
+- **Patterns:** Do not change frozen benchmark surfaces to make the learner pass; tune only learner/config surfaces allowed by the contributor contract.
+- **Test Scenarios:** Full tests pass before long runs; each complete session writes JSON and markdown artifacts; reaching 90% versus random/legal and 50% versus delayed tracker stops the run loop; three complete failed sessions stop the goal and preserve artifacts.
+- **Verification:** `uv run pytest` passes, review has no unresolved blocking findings, and training artifacts prove either signs of life or the requested three-session stop condition.
+
+---
+
+## Verification Contract
+
+| Gate | Command or Evidence | Covers |
+|---|---|---|
+| Static import smoke | `uv run python -c "import nano_pixel_rl; print(nano_pixel_rl.__version__)"` | U1, U4 |
+| Unit and contract tests | `uv run pytest` | U1-U6 |
+| CPU smoke speedrun | `bash runs/smoke.sh` | U2-U6 |
+| Artifact validation | `uv run python scripts/report.py --validate <run-json>` | U6, U7 |
+| Review pass | `ce-code-review mode:agent plan:docs/plans/2026-06-30-001-feat-benchmark-architecture-plan.md base:origin/main` or equivalent review output | U7 |
+| Simplification pass | `ce-simplify-code` on the current branch diff with tests rerun | U7 |
+| Signs-of-life sessions | Up to three complete five-hour `runs/speedrun.sh` sessions with run artifacts | U7 |
+
+The signs-of-life gate passes only when evaluation reaches at least `90%` win rate versus random/legal and at least `50%` win rate versus delayed tracker on fixed evaluation seeds.
+Prediction loss, invalid proposal rate, and update time are required diagnostics but cannot replace the win-rate threshold.
+
+---
+
+## Definition of Done
+
+- The repo has a package, docs, scripts, tests, and run artifacts matching the nanochat-like public benchmark shape.
+- The immutable token contract is centralized, documented, and covered by tests.
+- The JAX environment, interpreter, opponent ladder, reward contract, rollout, evaluation, and metrics run in batched form.
+- The editable learner surface exposes a tiny transformer-style `learner.update()` path and keeps normal algorithm changes out of frozen benchmark code.
+- The canonical smoke command runs locally and writes valid JSON and markdown artifacts.
+- The canonical speedrun command can run five-hour sessions and measure only learner training/update time for the leaderboard score.
+- Full tests pass after simplification and review fixes.
+- Long-run artifacts prove either the signs-of-life threshold was reached or three complete uninterrupted five-hour sessions failed to reach it.
+- Dead-end experimental code, abandoned scripts, and untracked generated files are removed or ignored before final handoff.
