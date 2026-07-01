@@ -16,8 +16,8 @@ execution: code
 - **Objective:** Build the v1 Nano Pixel RL benchmark around PixelPong, including the frozen JAX environment, editable tiny-transformer learner, speedrun runner, docs, tests, and first signs-of-life training workflow.
 - **Product authority:** `STRATEGY.md`, especially the speedrun benchmark, editable learner surface, immutable shared token space, and next-pixel prediction thesis.
 - **Execution profile:** Implement on a feature branch, preserve the public repo's frozen benchmark contract, keep all contributor-facing algorithm changes inside `nano_pixel_rl/learner/`, and treat the remote Aesop Linux/CUDA machine as the authoritative test and training target after local CPU smoke checks.
-- **Stop condition:** After implementation and review, run up to three complete uninterrupted five-hour training sessions; stop early if the signs-of-life threshold is reached, and stop after the third failed complete session if it is not.
-  Failed starts, setup failures, CUDA failures, crashes, or runs that do not produce a valid five-hour artifact do not count toward the three-session allotment.
+- **Stop condition:** After implementation and review, run up to three complete uninterrupted two-hour scored-update training sessions on Aesop; stop early if the signs-of-life threshold is reached, and stop after the third failed complete session if it is not.
+  Failed starts, setup failures, CUDA failures, crashes, or runs that do not produce a valid two-update-hour artifact do not count toward the three-session allotment.
 - **Open blockers:** None for v1 implementation; later leaderboard thresholds remain calibration work after a working baseline exists.
 
 ---
@@ -410,12 +410,12 @@ Python owns CLI parsing, artifact paths, markdown reports, and long-run orchestr
 
 ### U7. Quality Pass and Signs-of-Life Training Sessions
 
-- **Goal:** Review, simplify, and run the first training sessions under the requested stop condition.
+- **Goal:** Review, simplify, and run the first two-update-hour training sessions under the requested stop condition.
 - **Requirements:** R19, R20, R21, R22, R24, R25, R31.
 - **Files:** Modify code from U1-U6 as review findings require; write artifacts under `artifacts/runs/` and notes in `dev/LOG.md`.
 - **Approach:** Run the full test suite, run `ce-simplify-code` on the changed implementation, run `ce-code-review`, apply actionable fixes, then run up to three complete uninterrupted five-hour training sessions until the signs-of-life gates pass or the third complete session fails.
 - **Patterns:** Do not change frozen benchmark surfaces to make the learner pass; tune only learner/config surfaces allowed by the contributor contract.
-- **Test Scenarios:** Full tests pass before long runs; each complete session writes JSON and markdown artifacts; reaching 90% versus random/legal and 50% versus delayed tracker stops the run loop; three complete failed sessions stop the goal and preserve artifacts; failed starts and invalid artifacts are logged but do not count toward the three-session allotment.
+- **Test Scenarios:** Full tests pass before long runs; each complete two-update-hour session writes JSON and markdown artifacts; reaching 90% versus random/legal and 50% versus delayed tracker stops the run loop; three complete failed sessions stop the goal and preserve artifacts; failed starts and invalid artifacts are logged but do not count toward the three-session allotment.
 - **Verification:** `uv run pytest` passes, review has no unresolved blocking findings, and training artifacts prove either signs of life or the requested three-session stop condition.
 
 ---
@@ -431,7 +431,7 @@ Python owns CLI parsing, artifact paths, markdown reports, and long-run orchestr
 | Review pass | `ce-code-review mode:agent plan:docs/plans/2026-06-30-001-feat-benchmark-architecture-plan.md base:origin/main` or equivalent review output | U7 |
 | Simplification pass | `ce-simplify-code` on the current branch diff with tests rerun | U7 |
 | Remote Linux/CUDA validation | Sync branch to Aesop, install with `uv`, run `uv run --extra dev pytest`, and run `bash runs/smoke.sh` | U1-U7 |
-| Signs-of-life sessions | Up to three complete five-hour `runs/speedrun.sh` sessions on Aesop with valid run artifacts; failed starts do not count | U7 |
+| Signs-of-life sessions | Up to three complete two-update-hour `runs/speedrun.sh` sessions on Aesop with valid run artifacts; failed starts do not count | U7 |
 
 The signs-of-life gate passes only when evaluation reaches at least `90%` win rate versus random/legal and at least `50%` win rate versus delayed tracker on fixed evaluation seeds.
 Prediction loss, invalid proposal rate, and update time are required diagnostics but cannot replace the win-rate threshold.
@@ -445,7 +445,7 @@ Prediction loss, invalid proposal rate, and update time are required diagnostics
 - The JAX environment, interpreter, opponent ladder, reward contract, rollout, evaluation, and metrics run in batched form.
 - The editable learner surface exposes a tiny transformer-style `learner.update()` path and keeps normal algorithm changes out of frozen benchmark code.
 - The canonical smoke command runs locally and writes valid JSON and markdown artifacts.
-- The canonical speedrun command can run five-hour sessions on Aesop and measure only learner training/update time for the leaderboard score.
+- The canonical speedrun command can run two-update-hour sessions on Aesop and measure only learner training/update time for the leaderboard score.
 - Full tests pass after simplification and review fixes.
-- Long-run artifacts prove either the signs-of-life threshold was reached or three complete uninterrupted five-hour sessions failed to reach it; failed starts are excluded from the count and documented separately.
+- Long-run artifacts prove either the signs-of-life threshold was reached or three complete uninterrupted two-update-hour sessions failed to reach it; failed starts are excluded from the count and documented separately.
 - Dead-end experimental code, abandoned scripts, and untracked generated files are removed or ignored before final handoff.
