@@ -22,7 +22,7 @@ class RolloutBatch(NamedTuple):
 
 
 def make_random_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig()):
-    return make_heuristic_batch(key, batch_size, env_config)
+    return make_training_batch(key, batch_size, env_config)
 
 
 def _track_player_delta(state, env_config: EnvConfig):
@@ -44,6 +44,10 @@ def _randomize_state(key, env_config: EnvConfig):
 
 
 def make_heuristic_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig()):
+    return make_training_batch(key, batch_size, env_config)
+
+
+def make_training_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig()):
     keys = jax.random.split(key, batch_size)
     states = jax.vmap(lambda k: _randomize_state(k, env_config))(keys)
     obs = jax.vmap(lambda s: render_frame(s, env_config))(states)

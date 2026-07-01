@@ -7,7 +7,7 @@ import jax.numpy as jnp
 
 from nano_pixel_rl.benchmark.evaluate import evaluate
 from nano_pixel_rl.benchmark.logging import git_revision, hardware_summary, write_artifacts
-from nano_pixel_rl.benchmark.rollout import make_random_batch
+from nano_pixel_rl.benchmark.rollout import make_training_batch
 from nano_pixel_rl.env.pixelpong import EnvConfig
 from nano_pixel_rl.learner import Learner
 from nano_pixel_rl.reference.config import TrainConfig, learner_config_for_size
@@ -29,7 +29,7 @@ def run_speedrun(train_config: TrainConfig, model_size: str, out_dir: str):
         elif update_seconds >= train_config.duration_seconds and step_idx > 0:
             break
         key, batch_key = jax.random.split(key)
-        batch = make_random_batch(batch_key, train_config.num_envs, env_config)
+        batch = make_training_batch(batch_key, train_config.num_envs, env_config)
         start = time.perf_counter()
         learner_state, metrics = learner.update(learner_state, batch)
         jax.block_until_ready(learner_state.step)

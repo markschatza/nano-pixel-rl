@@ -9,6 +9,7 @@ import optax
 from nano_pixel_rl.benchmark.metrics import cross_entropy, token_accuracy
 from nano_pixel_rl.env.tokens import PADDLE
 from nano_pixel_rl.learner.model import ModelParams, forward
+from nano_pixel_rl.learner.proposal import legal_candidate_tops, paddle_window_scores
 
 
 class LearnerState(NamedTuple):
@@ -20,20 +21,11 @@ class LearnerState(NamedTuple):
 def _paddle_window_loss(logits, obs, target):
     player_x = 1
     paddle_height = 3
-    max_top = logits.shape[1] - paddle_height + 1
-    paddle_logits = logits[:, :, player_x, int(PADDLE)]
-    all_scores = jnp.stack(
-        [jnp.sum(paddle_logits[:, top : top + paddle_height], axis=1) for top in range(max_top)],
-        axis=1,
-    )
     current_top = jnp.argmax(obs[:, :, player_x] == PADDLE, axis=1)
     target_top = jnp.argmax(target[:, :, player_x] == PADDLE, axis=1)
-    candidates = jnp.clip(
-        current_top[:, None] + jnp.asarray([-1, 0, 1], dtype=jnp.int32)[None, :],
-        0,
-        max_top - 1,
-    )
-    candidate_scores = jnp.take_along_axis(all_scores, candidates, axis=1)
+    candidates = legal_candidate_tops(obs, player_x, paddle_height)
+    scores = paddle_window_scores(logits, player_x, paddle_height)
+    candidate_scores = jnp.take_along_axis(scores, candidates, axis=1)
     target_delta = jnp.clip(target_top - current_top, -1, 1) + 1
     return optax.softmax_cross_entropy_with_integer_labels(candidate_scores, target_delta).mean()
 
