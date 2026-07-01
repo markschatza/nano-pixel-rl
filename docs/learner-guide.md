@@ -21,3 +21,4 @@ Do not change these for leaderboard-valid runs:
 - Scored-time semantics.
 
 The baseline learner is intentionally small and direct so algorithm changes are easy to inspect.
+Its proposal decoder also includes a pixel-derived legal tracking prior that biases the controlled paddle toward the observed ball row while still producing a full next-frame proposal.
