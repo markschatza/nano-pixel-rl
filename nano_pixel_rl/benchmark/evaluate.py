@@ -5,19 +5,24 @@ import jax.numpy as jnp
 
 from nano_pixel_rl.benchmark.rollout import rollout_once
 from nano_pixel_rl.env.opponent import DELAYED_TRACKER, RANDOM_LEGAL
-from nano_pixel_rl.env.pixelpong import EnvConfig, reset
+from nano_pixel_rl.env.pixelpong import EnvConfig, render_frame, reset
 
 
 def evaluate(learner, learner_state, episodes: int, max_steps: int, seed: int, env_config: EnvConfig = EnvConfig()):
     results = {}
     for name, kind in [("random_legal", RANDOM_LEGAL), ("delayed_tracker", DELAYED_TRACKER)]:
         states = jax.vmap(lambda k: reset(k, env_config))(jax.random.split(jax.random.PRNGKey(seed + kind), episodes))
+        current = jax.vmap(lambda s: render_frame(s, env_config))(states)
+        prev = current
         invalid_sum = 0.0
         pred_sum = 0.0
         for t in range(max_steps):
             keys = jax.random.split(jax.random.PRNGKey(seed + kind * 1000 + t), episodes)
-            batch = rollout_once(learner, learner_state, states, keys, kind, env_config)
+            input_frames = jnp.stack([prev, current], axis=1)
+            batch = rollout_once(learner, learner_state, states, keys, kind, env_config, input_frames=input_frames)
             states = batch.final_states
+            prev = current
+            current = jax.vmap(lambda s: render_frame(s, env_config))(states)
             invalid_sum += float(jnp.mean(batch.invalid.astype(jnp.float32)))
             pred_sum += float(jnp.mean(batch.prediction_loss))
         wins = states.player_score > states.opponent_score

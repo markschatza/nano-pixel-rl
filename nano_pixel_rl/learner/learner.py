@@ -22,7 +22,13 @@ class Learner:
         self._jit_logits = jax.jit(lambda params, frames: forward(params, frames))
 
     def init(self, key):
-        params = init_params(key, self.env_config.height, self.env_config.width, self.config.hidden_dim)
+        params = init_params(
+            key,
+            self.env_config.height,
+            self.env_config.width,
+            self.config.hidden_dim,
+            self.config.context_frames,
+        )
         return LearnerState(params=params, opt_state=self.optimizer.init(params), step=jnp.asarray(0, dtype=jnp.int32))
 
     def logits(self, state: LearnerState, frames):
@@ -30,7 +36,13 @@ class Learner:
 
     def propose(self, state: LearnerState, frames):
         logits = self.logits(state, frames)
-        return decode_legal_paddle_proposal(logits, frames, self.env_config.player_x, self.env_config.paddle_height)
+        current_frame = frames[:, -1, :, :] if frames.ndim == 4 else frames
+        return decode_legal_paddle_proposal(
+            logits,
+            current_frame,
+            self.env_config.player_x,
+            self.env_config.paddle_height,
+        )
 
     def update(self, state: LearnerState, batch):
         return self._jit_update(state, batch)

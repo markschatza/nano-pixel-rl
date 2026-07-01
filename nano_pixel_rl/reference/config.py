@@ -6,11 +6,11 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class LearnerConfig:
     model_size: str = "tiny"
-    learning_rate: float = 3e-4
+    learning_rate: float = 1e-3
     prediction_weight: float = 0.05
-    paddle_window_weight: float = 1.0
+    paddle_window_weight: float = 5.0
     hidden_dim: int = 64
-    context_frames: int = 1
+    context_frames: int = 2
 
 
 @dataclass(frozen=True)

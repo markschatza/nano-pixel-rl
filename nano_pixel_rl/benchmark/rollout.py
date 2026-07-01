@@ -34,13 +34,15 @@ def _randomize_state(key, env_config: EnvConfig):
     state = reset(key, env_config)
     keys = jax.random.split(key, 12)
 
-    def body(s, k):
+    def body(carry, k):
+        prev, s = carry
         player_delta = jax.random.randint(k, (), -1, 2, dtype=jnp.int32)
         opponent = jnp.sign(s.ball_y - (s.opponent_y + env_config.paddle_height // 2)).astype(jnp.int32)
-        return step(s, player_delta, opponent, env_config), None
+        next_state = step(s, player_delta, opponent, env_config)
+        return (s, next_state), None
 
-    state, _ = jax.lax.scan(body, state, keys)
-    return state
+    (prev_state, state), _ = jax.lax.scan(body, (state, state), keys)
+    return prev_state, state
 
 
 def make_heuristic_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig()):
@@ -49,8 +51,10 @@ def make_heuristic_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig
 
 def make_training_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig()):
     keys = jax.random.split(key, batch_size)
-    states = jax.vmap(lambda k: _randomize_state(k, env_config))(keys)
-    obs = jax.vmap(lambda s: render_frame(s, env_config))(states)
+    prev_states, states = jax.vmap(lambda k: _randomize_state(k, env_config))(keys)
+    prev_obs = jax.vmap(lambda s: render_frame(s, env_config))(prev_states)
+    current_obs = jax.vmap(lambda s: render_frame(s, env_config))(states)
+    obs = jnp.stack([prev_obs, current_obs], axis=1)
     player_deltas = jax.vmap(lambda s: _track_player_delta(s, env_config))(states)
     opponent_deltas = jax.vmap(lambda s: jnp.sign(s.ball_y - (s.opponent_y + env_config.paddle_height // 2)).astype(jnp.int32))(states)
     next_states = jax.vmap(lambda s, p, o: step(s, p, o, env_config))(states, player_deltas, opponent_deltas)
@@ -58,8 +62,17 @@ def make_training_batch(key, batch_size: int, env_config: EnvConfig = EnvConfig(
     return {"obs": obs, "target": target}
 
 
-def rollout_once(learner, learner_state, states, keys, opponent_kind: int, env_config: EnvConfig = EnvConfig()):
-    obs = jax.vmap(lambda s: render_frame(s, env_config))(states)
+def rollout_once(
+    learner,
+    learner_state,
+    states,
+    keys,
+    opponent_kind: int,
+    env_config: EnvConfig = EnvConfig(),
+    input_frames=None,
+):
+    current_obs = jax.vmap(lambda s: render_frame(s, env_config))(states)
+    obs = current_obs[:, None, :, :] if input_frames is None else input_frames
     proposal = learner.propose(learner_state, obs)
     actions = jax.vmap(lambda p, s: interpret_proposal(p, s, env_config))(proposal, states)
     opp = jax.vmap(lambda s, k: opponent_delta(s, k, opponent_kind, env_config))(states, keys)

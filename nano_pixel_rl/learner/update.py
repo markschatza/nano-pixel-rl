@@ -21,9 +21,10 @@ class LearnerState(NamedTuple):
 def _paddle_window_loss(logits, obs, target):
     player_x = 1
     paddle_height = 3
-    current_top = jnp.argmax(obs[:, :, player_x] == PADDLE, axis=1)
+    current = obs[:, -1, :, :] if obs.ndim == 4 else obs
+    current_top = jnp.argmax(current[:, :, player_x] == PADDLE, axis=1)
     target_top = jnp.argmax(target[:, :, player_x] == PADDLE, axis=1)
-    candidates = legal_candidate_tops(obs, player_x, paddle_height)
+    candidates = legal_candidate_tops(current, player_x, paddle_height)
     scores = paddle_window_scores(logits, player_x, paddle_height)
     candidate_scores = jnp.take_along_axis(scores, candidates, axis=1)
     target_delta = jnp.clip(target_top - current_top, -1, 1) + 1
