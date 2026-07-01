@@ -15,6 +15,9 @@ dependencies = [
 dev = [
   "pytest>=8.0",
 ]
+cuda = [
+  "jax[cuda13]>=0.4.30",
+]
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
